@@ -7,6 +7,7 @@
  *   npx qualien-mcp --config x.json # aggregate whatever you list
  */
 import { createRequire } from "node:module";
+import { catalogList } from "./catalog.js";
 import { loadConfig } from "./config.js";
 import { startGateway } from "./gateway.js";
 import { runLogin } from "./login.js";
@@ -27,10 +28,17 @@ async function main(): Promise<void> {
         `A composite MCP gateway for SDET/QE — aggregates many MCP servers behind one connection.\n\n` +
         `Usage:\n` +
         `  qualien-mcp [--config <path>]      run the gateway (stdio)\n` +
+        `  qualien-mcp catalog                list the built-in servers you can enable\n` +
         `  qualien-mcp login <server>         authorize a remote OAuth server (e.g. github)\n\n` +
         `With no config it serves the QE starter pair (Playwright + Filesystem).\n` +
         `Add a qualien-mcp.config.json (cwd) or pass --config to aggregate more.\n`
     );
+    return;
+  }
+
+  // `catalog` — list the curated servers a user can enable by key.
+  if (argv[0] === "catalog") {
+    process.stderr.write(catalogList() + "\n");
     return;
   }
 

@@ -64,6 +64,41 @@ Drop a `qualien-mcp.config.json` in your working directory (or pass `--config <p
 
 See [`qualien-mcp.config.example.json`](./qualien-mcp.config.example.json) for the full shape (`command`, `args`, `env`, `enabled`, `tools.allow` / `tools.deny`).
 
+### Built-in catalog
+
+qualien-mcp ships a curated catalog of known servers (verified against npm), so you enable one by **key** with just your secrets — no need to remember packages or commands:
+
+```json
+{
+  "servers": {
+    "chrome-devtools": { "enabled": true },
+    "postgres":  { "enabled": true, "env": { "DATABASE_URI": "postgres://…" } },
+    "slack":     { "enabled": true, "env": { "SLACK_MCP_XOXP_TOKEN": "xoxp-…" } }
+  }
+}
+```
+
+Run `npx qualien-mcp catalog` to list them all with what each needs. Current catalog:
+
+| Key | What | Needs |
+|---|---|---|
+| `playwright` *(default)* | Browser automation, DOM, screenshots | — |
+| `filesystem` *(default)* | Read/edit project files | a dir to allow (default cwd) |
+| `github` | PRs, issues, code review | your GitHub OAuth App + `login` (see below) |
+| `sequential-thinking` | Structured reasoning / debugging | — |
+| `memory` | Persistent knowledge graph | — |
+| `chrome-devtools` | Network, console, perf, storage | — |
+| `postgres` | SQL / validate backend data | `DATABASE_URI` |
+| `mysql` | SQL / validate backend data | MySQL env |
+| `slack` | Read/post Slack | `SLACK_MCP_XOXP_TOKEN` |
+| `docker` | Manage containers | Docker daemon |
+| `kubernetes` | Inspect/operate a cluster | kubeconfig |
+| `openapi` | Drive any REST API from its spec | `API_BASE_URL`, `OPENAPI_SPEC_PATH` |
+| `jira` | Read/update Jira issues | Atlassian API token env |
+| `figma` | Read Figma designs | `FIGMA_API_KEY` |
+
+`use` mounts a catalog server under a different key (e.g. two databases): `{ "db-prod": { "use": "postgres", "enabled": true, "env": {…} } }`. Anything not in the catalog you still define in full (`command`/`args` or `type`/`url`).
+
 ## Remote & OAuth servers (e.g. GitHub)
 
 Downstreams can be **remote** (Streamable HTTP) as well as local. A remote server is `{ "type": "http", "url": "…" }`, and if it needs OAuth, **each user logs in with their own account** — tokens are stored per user at `~/.qualien-mcp/credentials.json` (0600) and are never bundled or shared.
