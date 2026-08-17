@@ -9,6 +9,7 @@
 import { createRequire } from "node:module";
 import { loadConfig } from "./config.js";
 import { startGateway } from "./gateway.js";
+import { runLogin } from "./login.js";
 import { log } from "./log.js";
 
 const require = createRequire(import.meta.url);
@@ -25,12 +26,26 @@ async function main(): Promise<void> {
       `qualien-mcp v${version}\n` +
         `A composite MCP gateway for SDET/QE — aggregates many MCP servers behind one connection.\n\n` +
         `Usage:\n` +
-        `  qualien-mcp [--config <path>]\n\n` +
+        `  qualien-mcp [--config <path>]      run the gateway (stdio)\n` +
+        `  qualien-mcp login <server>         authorize a remote OAuth server (e.g. github)\n\n` +
         `With no config it serves the QE starter pair (Playwright + Filesystem).\n` +
         `Add a qualien-mcp.config.json (cwd) or pass --config to aggregate more.\n`
     );
     return;
   }
+
+  // `login <server>` — interactive OAuth for a remote server, run once per user.
+  if (argv[0] === "login") {
+    const key = argv[1];
+    if (!key) {
+      process.stderr.write("usage: qualien-mcp login <server>\n");
+      process.exitCode = 1;
+      return;
+    }
+    await runLogin(key, loadConfig(argv), version);
+    return;
+  }
+
   const config = loadConfig(argv);
   await startGateway(config, version);
 }

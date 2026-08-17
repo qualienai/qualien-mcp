@@ -16,6 +16,9 @@ import {
   StdioClientTransport,
   getDefaultEnvironment,
 } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
   CallToolRequestSchema,
   GetPromptRequestSchema,
@@ -26,7 +29,8 @@ import {
   ReadResourceRequestSchema,
   type ServerCapabilities,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { Config, ServerConfig } from "./config.js";
+import { isHttp, type Config, type ServerConfig } from "./config.js";
+import { FileOAuthProvider, NeedsLoginError } from "./oauth.js";
 import { log } from "./log.js";
 
 const SEP = "__";
@@ -35,9 +39,35 @@ type Downstream = {
   key: string;
   client: Client;
   cfg: ServerConfig;
-  transport: StdioClientTransport;
+  transport: Transport;
   caps: ServerCapabilities;
 };
+
+/** Builds the right client transport for a server (local stdio or remote HTTP).
+ *  For OAuth remotes the provider is non-interactive: if a redirect is needed it
+ *  throws NeedsLoginError rather than popping a browser mid-session. */
+function makeTransport(key: string, cfg: ServerConfig): Transport {
+  if (isHttp(cfg)) {
+    const authProvider = cfg.oauth
+      ? new FileOAuthProvider(key, Number(process.env.QUALIEN_MCP_CALLBACK_PORT ?? 41999), {
+          interactive: false,
+          scope: cfg.scope,
+          clientId: cfg.clientId,
+          clientSecret: cfg.clientSecret,
+        })
+      : undefined;
+    return new StreamableHTTPClientTransport(new URL(cfg.url), {
+      authProvider,
+      requestInit: cfg.headers ? { headers: cfg.headers } : undefined,
+    });
+  }
+  return new StdioClientTransport({
+    command: cfg.command,
+    args: cfg.args ?? [],
+    env: { ...getDefaultEnvironment(), ...(cfg.env ?? {}) },
+    stderr: "inherit", // surface the child's own logs in the host's MCP logs
+  });
+}
 
 function toolAllowed(cfg: ServerConfig, name: string): boolean {
   const t = cfg.tools;
@@ -54,12 +84,7 @@ async function connectDownstream(
   cfg: ServerConfig,
   version: string
 ): Promise<Downstream | null> {
-  const transport = new StdioClientTransport({
-    command: cfg.command,
-    args: cfg.args ?? [],
-    env: { ...getDefaultEnvironment(), ...(cfg.env ?? {}) },
-    stderr: "inherit", // surface the child's own logs in the host's MCP logs
-  });
+  const transport = makeTransport(key, cfg);
   const client = new Client({ name: `qualien-mcp:${key}`, version }, { capabilities: {} });
   try {
     const t0 = Date.now();
@@ -68,8 +93,14 @@ async function connectDownstream(
     log.info("downstream_connected", { server: key, ms: Date.now() - t0, capabilities: Object.keys(caps) });
     return { key, client, cfg, transport, caps };
   } catch (e) {
-    log.error("downstream_connect_failed", { server: key, error: String(e) });
     try { await transport.close(); } catch { /* ignore */ }
+    // An OAuth remote the user hasn't logged into: skip it with an actionable hint
+    // (not a scary error) — the rest of the gateway still comes up.
+    if (e instanceof NeedsLoginError || e instanceof UnauthorizedError) {
+      log.warn("downstream_needs_login", { server: key, hint: `run: npx qualien-mcp login ${key}` });
+      return null;
+    }
+    log.error("downstream_connect_failed", { server: key, error: String(e) });
     return null;
   }
 }
