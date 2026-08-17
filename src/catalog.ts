@@ -28,13 +28,17 @@ export const CATALOG: Record<string, CatalogEntry> = {
   playwright: {
     description: "Browser automation, DOM inspection, screenshots — the QE 'eyes'.",
     defaultOn: true,
-    config: npx("@playwright/mcp@latest"),
+    config: { ...npx("@playwright/mcp@latest"), category: "browser" },
   },
   filesystem: {
     description: "Read/edit project files — page objects, test utils, framework refactors.",
     requires: ["a directory to allow (defaults to the launch cwd)"],
     defaultOn: true,
-    config: { command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", process.cwd()] },
+    config: {
+      command: "npx",
+      args: ["-y", "@modelcontextprotocol/server-filesystem", process.cwd()],
+      category: "filesystem",
+    },
   },
 
   // ---- remote / OAuth ----
@@ -66,13 +70,13 @@ export const CATALOG: Record<string, CatalogEntry> = {
   // ---- databases (verify backend data / API↔DB consistency) ----
   postgres: {
     description: "Run SQL and inspect schema against PostgreSQL — validate backend data.",
-    requires: ["env DATABASE_URI (postgres connection string)"],
-    config: npx("@henkey/postgres-mcp-server"),
+    requires: ["env DATABASE_URI (postgres connection string)", "read-only by default; set readOnly:false to allow writes"],
+    config: { ...npx("@henkey/postgres-mcp-server"), category: "database", readOnly: true },
   },
   mysql: {
     description: "Run SQL and inspect schema against MySQL — validate backend data.",
-    requires: ["env MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASS, MYSQL_DB"],
-    config: npx("@benborla29/mcp-server-mysql"),
+    requires: ["env MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASS, MYSQL_DB", "read-only by default; set readOnly:false to allow writes"],
+    config: { ...npx("@benborla29/mcp-server-mysql"), category: "database", readOnly: true },
   },
 
   // ---- collaboration / infra / API / design ----
@@ -83,13 +87,13 @@ export const CATALOG: Record<string, CatalogEntry> = {
   },
   docker: {
     description: "Manage containers/images — spin up test dependencies (community server).",
-    requires: ["a running Docker daemon"],
-    config: npx("docker-mcp"),
+    requires: ["a running Docker daemon", "destructive tools blocked by default; set allowDestructive:true to permit"],
+    config: { ...npx("docker-mcp"), category: "infra" },
   },
   kubernetes: {
     description: "Inspect/operate a cluster — kubectl-style, for environment validation.",
-    requires: ["a working kubeconfig (KUBECONFIG or ~/.kube/config)"],
-    config: npx("mcp-server-kubernetes"),
+    requires: ["a working kubeconfig (KUBECONFIG or ~/.kube/config)", "destructive tools blocked by default; set allowDestructive:true to permit"],
+    config: { ...npx("mcp-server-kubernetes"), category: "infra" },
   },
   openapi: {
     description: "Drive any REST API from its OpenAPI spec — API testing / verification.",

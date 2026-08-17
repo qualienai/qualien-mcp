@@ -126,6 +126,34 @@ GitHub's hosted MCP is the reference case. It does **not** support dynamic clien
 
 After that the gateway connects to GitHub non-interactively (refreshing tokens as needed) and exposes `github__*` tools. If a remote server isn't logged in yet, the gateway **skips it with a hint** (`run: npx qualien-mcp login github`) and still serves everything else — it never blocks startup. Servers that *do* support dynamic registration need no `clientId`.
 
+## Safe by default
+
+qualien-mcp enforces guardrails **centrally, before forwarding a call** — so they hold no matter what the downstream permits, and composite tools can't bypass them either:
+
+- **Databases are read-only** — `postgres`/`mysql` calls containing write/DDL SQL (`INSERT/UPDATE/DELETE/DROP/…`) are refused. Opt in with `{ "postgres": { "readOnly": false } }`.
+- **Filesystem roots** — `{ "filesystem": { "roots": ["./src", "./tests"] } }` refuses any call whose path argument escapes those directories.
+- **Destructive infra tools blocked** — `docker`/`kubernetes` tools whose name looks destructive (`delete/remove/prune/kill/…`) are refused unless `{ "allowDestructive": true }`.
+- Plus per-server **`tools.deny` / `tools.allow`** curation.
+
+> Honest scope: these stop an LLM from *accidentally* doing damage. The SQL check is keyword-based (heuristic), not a parser — it is **not** adversarial sandboxing. Real isolation needs the downstream's own permissions or a container.
+
+## Composite QE tools
+
+Beyond passthrough, qualien-mcp ships tools it implements itself (namespace `qe__`) that orchestrate several downstreams in one call — the QE payoff of a gateway.
+
+**`qe__verify_api_vs_db`** — end-to-end API↔DB consistency in one call. Give it two sub-calls (namespaced tools you can discover via `tools/list`); it runs both and diffs the payloads:
+
+```jsonc
+{
+  "api": { "tool": "openapi__getUser", "arguments": { "id": 1 } },
+  "db":  { "tool": "postgres__query", "arguments": { "sql": "select id, name from users where id = 1" } },
+  "match": "subset"        // every field the DB returns must match the API (default)
+}
+// → { "match": false, "differences": [ { "path": "name", "api": "Ann", "db": "Bob" } ], … }
+```
+
+Composite tools appear only when their required downstreams are connected (`qe__verify_api_vs_db` needs a `database` server). More to come (repro-from-Jira, page-object-from-URL, flaky triage).
+
 ## How it works
 
 In one process, qualien-mcp is **both** an MCP *server* to your assistant and an MCP *client* to each downstream:

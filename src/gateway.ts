@@ -27,10 +27,13 @@ import {
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
+  type CallToolResult,
   type ServerCapabilities,
 } from "@modelcontextprotocol/sdk/types.js";
 import { isHttp, type Config, type ServerConfig } from "./config.js";
 import { FileOAuthProvider, NeedsLoginError } from "./oauth.js";
+import { checkCall } from "./safety.js";
+import { COMPOSITE_TOOLS, type CompositeContext } from "./composite.js";
 import { log } from "./log.js";
 
 const SEP = "__";
@@ -116,6 +119,51 @@ export async function startGateway(config: Config, version: string): Promise<voi
     log.warn("no_downstreams_connected", { configured: entries.map(([k]) => k) });
   }
 
+  // Composite QE tools whose required categories are present among connected servers.
+  const availableComposites = COMPOSITE_TOOLS.filter((t) =>
+    (t.requiresCategories ?? []).every((cat) => downstreams.some((d) => d.cfg.category === cat))
+  );
+
+  const errResult = (msg: string): CallToolResult => ({
+    content: [{ type: "text", text: `qualien-mcp: ${msg}` }],
+    isError: true,
+  });
+
+  // Route a namespaced tool call to its downstream — applying curation AND the
+  // safe-by-default guardrails (read-only DB, fs roots, destructive denylist).
+  // Composite tools call THROUGH this too, so they can't bypass the guardrails.
+  async function callDownstreamTool(full: string, args: Record<string, unknown>): Promise<CallToolResult> {
+    const idx = full.indexOf(SEP);
+    const key = idx >= 0 ? full.slice(0, idx) : "";
+    const bare = idx >= 0 ? full.slice(idx + SEP.length) : full;
+    const d = byKey.get(key);
+    if (!d) {
+      log.warn("route_miss", { tool: full });
+      return errResult(`no downstream for tool "${full}". Expected "<server>${SEP}<tool>".`);
+    }
+    if (!toolAllowed(d.cfg, bare)) return errResult(`tool "${bare}" is disabled for server "${key}".`);
+    const blocked = checkCall(d.cfg, bare, args);
+    if (blocked) {
+      log.warn("guardrail_blocked", { server: key, tool: bare, reason: blocked.reason });
+      return errResult(blocked.reason);
+    }
+    const t0 = Date.now();
+    try {
+      const result = (await d.client.callTool({ name: bare, arguments: args })) as CallToolResult;
+      log.info("tool_call", { server: key, tool: bare, ms: Date.now() - t0, ok: result.isError !== true });
+      return result;
+    } catch (e) {
+      log.error("tool_call_failed", { server: key, tool: bare, ms: Date.now() - t0, error: String(e) });
+      return errResult(`downstream "${key}" failed calling "${bare}": ${String(e)}`);
+    }
+  }
+
+  const compositeCtx: CompositeContext = {
+    hasCategory: (cat) => downstreams.some((d) => d.cfg.category === cat),
+    hasServer: (k) => byKey.has(k),
+    call: (t, a) => callDownstreamTool(t, a),
+  };
+
   // Advertise only the primitives at least one downstream actually supports.
   const capabilities: ServerCapabilities = {};
   if (downstreams.some((d) => d.caps.tools)) capabilities.tools = {};
@@ -147,31 +195,32 @@ export async function startGateway(config: Config, version: string): Promise<voi
         log.error("list_tools_failed", { server: d.key, error: String(e) });
       }
     }
+    // Composite QE tools the gateway implements itself (qe__…).
+    for (const t of availableComposites) {
+      tools.push({ name: `qe${SEP}${t.name}`, description: t.description, inputSchema: t.inputSchema });
+    }
     return { tools };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const full = req.params.name;
-    const idx = full.indexOf(SEP);
-    const key = idx >= 0 ? full.slice(0, idx) : "";
-    const bare = idx >= 0 ? full.slice(idx + SEP.length) : full;
-    const d = byKey.get(key);
-    if (!d) {
-      log.warn("route_miss", { tool: full });
-      return { content: [{ type: "text", text: `qualien-mcp: no downstream for tool "${full}". Expected "<server>${SEP}<tool>".` }], isError: true };
+    const args = (req.params.arguments ?? {}) as Record<string, unknown>;
+    // Composite QE tools are handled in-process (they orchestrate downstreams).
+    if (full.startsWith(`qe${SEP}`)) {
+      const bare = full.slice(`qe${SEP}`.length);
+      const tool = availableComposites.find((t) => t.name === bare);
+      if (!tool) return errResult(`unknown composite tool "${full}".`);
+      const t0 = Date.now();
+      try {
+        const result = await tool.run(compositeCtx, args);
+        log.info("composite_call", { tool: bare, ms: Date.now() - t0, ok: result.isError !== true });
+        return result;
+      } catch (e) {
+        log.error("composite_failed", { tool: bare, error: String(e) });
+        return errResult(`composite "${bare}" failed: ${String(e)}`);
+      }
     }
-    if (!toolAllowed(d.cfg, bare)) {
-      return { content: [{ type: "text", text: `qualien-mcp: tool "${bare}" is disabled for server "${key}".` }], isError: true };
-    }
-    const t0 = Date.now();
-    try {
-      const result = await d.client.callTool({ name: bare, arguments: req.params.arguments ?? {} });
-      log.info("tool_call", { server: key, tool: bare, ms: Date.now() - t0, ok: result.isError !== true });
-      return result;
-    } catch (e) {
-      log.error("tool_call_failed", { server: key, tool: bare, ms: Date.now() - t0, error: String(e) });
-      return { content: [{ type: "text", text: `qualien-mcp: downstream "${key}" failed calling "${bare}": ${String(e)}` }], isError: true };
-    }
+    return callDownstreamTool(full, args);
   });
   } // registerToolHandlers
 
