@@ -1,0 +1,34 @@
+{
+  "_about": "Copy to qualien-mcp.config.json (or pass --config <path>). Servers here merge over the built-in defaults (playwright, filesystem); a key you redefine wins, and `enabled: false` turns a default off. Tools are namespaced <server>__<tool> to the host.",
+  "servers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "enabled": true,
+      "tools": {
+        "_comment": "Optional curation — fewer tools = better host tool-selection.",
+        "deny": []
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/allow"],
+      "enabled": true
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "enabled": false
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "enabled": false
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "enabled": false
+    }
+  }
+}

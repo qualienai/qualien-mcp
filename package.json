@@ -1,0 +1,47 @@
+{
+  "name": "qualien-mcp",
+  "version": "0.1.0",
+  "description": "A composite MCP gateway that aggregates multiple MCP servers behind one connection — curated for SDET/QE workflows.",
+  "type": "module",
+  "bin": {
+    "qualien-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "qualien-mcp.config.example.json"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "gateway",
+    "aggregator",
+    "sdet",
+    "qa",
+    "qe",
+    "testing",
+    "playwright"
+  ],
+  "author": "qualien",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qualienai/qualien-mcp.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  }
+}
