@@ -10,18 +10,56 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { log } from "./log.js";
 
-export type ServerConfig = {
+/** Curation + on/off common to every server kind. */
+type CommonConfig = {
+  /** Set false to keep a server configured but off. Default: on. */
+  enabled?: boolean;
+  /** Tool curation for this server — fewer tools = better host tool-selection. */
+  tools?: { allow?: string[]; deny?: string[] };
+};
+
+/** A local server spawned over stdio (e.g. `npx @playwright/mcp`). */
+export type StdioServerConfig = CommonConfig & {
   /** Executable to spawn (e.g. "npx"). */
   command: string;
   /** Arguments (e.g. ["-y", "@playwright/mcp@latest"]). */
   args?: string[];
   /** Extra env for the child (merged over the inherited environment). */
   env?: Record<string, string>;
-  /** Set false to keep a server configured but off. Default: on. */
-  enabled?: boolean;
-  /** Tool curation for this server — fewer tools = better host tool-selection. */
-  tools?: { allow?: string[]; deny?: string[] };
 };
+
+/**
+ * A remote server reached over Streamable HTTP (e.g. GitHub's hosted MCP at
+ * https://api.githubcopilot.com/mcp/). With `oauth: true` each USER logs in with
+ * their OWN account via `qualien-mcp login <server>` — tokens are stored per user
+ * at ~/.qualien-mcp/credentials.json, never shared or bundled.
+ */
+export type HttpServerConfig = CommonConfig & {
+  type: "http";
+  /** The MCP endpoint URL. */
+  url: string;
+  /** Run the OAuth authorization-code flow for this server. */
+  oauth?: boolean;
+  /**
+   * Pre-registered OAuth client id. REQUIRED for servers that don't support
+   * dynamic client registration (e.g. GitHub) — the user registers their own
+   * OAuth app (callback http://127.0.0.1:41999/callback) and puts its id here.
+   * Omit it for servers that support DCR (qualien-mcp registers automatically).
+   */
+  clientId?: string;
+  /** OAuth client secret, only for "confidential" apps that require one. */
+  clientSecret?: string;
+  /** OAuth scope string to request (space-separated), if the server needs one. */
+  scope?: string;
+  /** Static headers (e.g. a personal access token) for non-OAuth remotes. */
+  headers?: Record<string, string>;
+};
+
+export type ServerConfig = StdioServerConfig | HttpServerConfig;
+
+export function isHttp(c: ServerConfig): c is HttpServerConfig {
+  return (c as HttpServerConfig).type === "http" || typeof (c as HttpServerConfig).url === "string";
+}
 
 export type Config = { servers: Record<string, ServerConfig> };
 
@@ -75,8 +113,11 @@ export function loadConfig(argv: string[]): Config {
     throw new Error(`Config ${path} must have a top-level "servers" object.`);
   }
   for (const [key, cfg] of Object.entries(servers)) {
-    if (!cfg || typeof (cfg as ServerConfig).command !== "string") {
-      throw new Error(`Config server "${key}" needs a "command" string.`);
+    const c = cfg as Partial<StdioServerConfig & HttpServerConfig>;
+    const stdio = typeof c.command === "string";
+    const http = c.type === "http" || typeof c.url === "string";
+    if (!cfg || (!stdio && !http)) {
+      throw new Error(`Config server "${key}" needs a "command" (stdio) or a "url" (http).`);
     }
     config.servers[key] = cfg as ServerConfig;
   }

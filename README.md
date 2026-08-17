@@ -64,6 +64,33 @@ Drop a `qualien-mcp.config.json` in your working directory (or pass `--config <p
 
 See [`qualien-mcp.config.example.json`](./qualien-mcp.config.example.json) for the full shape (`command`, `args`, `env`, `enabled`, `tools.allow` / `tools.deny`).
 
+## Remote & OAuth servers (e.g. GitHub)
+
+Downstreams can be **remote** (Streamable HTTP) as well as local. A remote server is `{ "type": "http", "url": "…" }`, and if it needs OAuth, **each user logs in with their own account** — tokens are stored per user at `~/.qualien-mcp/credentials.json` (0600) and are never bundled or shared.
+
+GitHub's hosted MCP is the reference case. It does **not** support dynamic client registration, so you register **your own** GitHub OAuth App once and give qualien-mcp its Client ID:
+
+1. GitHub → Settings → Developer settings → **OAuth Apps** → New. Set the callback URL to `http://127.0.0.1:41999/callback`. Copy the **Client ID**.
+2. In `qualien-mcp.config.json`:
+   ```json
+   {
+     "servers": {
+       "github": {
+         "type": "http",
+         "url": "https://api.githubcopilot.com/mcp/",
+         "oauth": true,
+         "clientId": "<your client id>"
+       }
+     }
+   }
+   ```
+3. Authorize (opens your browser, once):
+   ```bash
+   npx qualien-mcp login github
+   ```
+
+After that the gateway connects to GitHub non-interactively (refreshing tokens as needed) and exposes `github__*` tools. If a remote server isn't logged in yet, the gateway **skips it with a hint** (`run: npx qualien-mcp login github`) and still serves everything else — it never blocks startup. Servers that *do* support dynamic registration need no `clientId`.
+
 ## How it works
 
 In one process, qualien-mcp is **both** an MCP *server* to your assistant and an MCP *client* to each downstream:

@@ -15,6 +15,14 @@
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/allow"],
       "enabled": true
     },
+    "github": {
+      "_about": "Remote OAuth server. Each USER logs in with their OWN GitHub via `qualien-mcp login github`. GitHub does NOT support dynamic client registration, so register a GitHub OAuth App (Settings → Developer settings → OAuth Apps) with callback http://127.0.0.1:41999/callback and put its Client ID below.",
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "oauth": true,
+      "clientId": "YOUR_GITHUB_OAUTH_APP_CLIENT_ID",
+      "enabled": false
+    },
     "sequential-thinking": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
