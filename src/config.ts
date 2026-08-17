@@ -8,6 +8,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { CATALOG } from "./catalog.js";
 import { log } from "./log.js";
 
 /** Curation + on/off common to every server kind. */
@@ -63,23 +64,21 @@ export function isHttp(c: ServerConfig): c is HttpServerConfig {
 
 export type Config = { servers: Record<string, ServerConfig> };
 
-/** The zero-config QE starter pair — both stdio npx servers, no auth needed. */
-export function defaultConfig(): Config {
-  return {
-    servers: {
-      playwright: {
-        command: "npx",
-        args: ["-y", "@playwright/mcp@latest"],
-        enabled: true,
-      },
-      filesystem: {
-        // Root defaults to the directory the gateway is launched from.
-        command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-filesystem", process.cwd()],
-        enabled: true,
-      },
-    },
-  };
+/**
+ * A server entry as WRITTEN in a config file: everything optional (so you can
+ * just flip `{ "enabled": true }` on a catalog server), plus `use` to mount a
+ * catalog server under a different key. Resolved to a full ServerConfig against
+ * the CATALOG before use.
+ */
+export type RawServerConfig = Partial<StdioServerConfig & HttpServerConfig> & { use?: string };
+
+/** The zero-config default: the QE starter pair, resolved from the catalog. */
+function defaultRawServers(): Record<string, RawServerConfig> {
+  const out: Record<string, RawServerConfig> = {};
+  for (const [key, entry] of Object.entries(CATALOG)) {
+    if (entry.defaultOn) out[key] = { enabled: true };
+  }
+  return out;
 }
 
 function configPathFromArgv(argv: string[]): string | null {
@@ -89,38 +88,52 @@ function configPathFromArgv(argv: string[]): string | null {
   return existsSync(local) ? local : null;
 }
 
+/** Fill a raw entry's command/url from the catalog (its own key, or `use`); the
+ *  user's own fields always win over the catalog's. */
+function resolveServer(key: string, raw: RawServerConfig): ServerConfig {
+  const base = (CATALOG[raw.use ?? key]?.config ?? {}) as RawServerConfig;
+  const merged: RawServerConfig = { ...base, ...raw };
+  delete merged.use;
+  return merged as ServerConfig;
+}
+
 /**
- * Default config, with any user config file merged on top (per-server key, user
- * wins) — so a user can add servers, or disable a default with `enabled: false`.
- * A malformed config file is a hard error: silently falling back to defaults
- * would hide the user's mistake.
+ * Builds the effective config: the default QE pair, plus any servers from the
+ * user's config file (merged per key), each resolved against the catalog. A
+ * malformed config file is a hard error — silently falling back would hide the
+ * user's mistake.
  */
 export function loadConfig(argv: string[]): Config {
-  const config = defaultConfig();
+  const raw = defaultRawServers();
   const path = configPathFromArgv(argv);
-  if (!path) {
-    log.info("config_default", { servers: Object.keys(config.servers) });
-    return config;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
-  } catch (e) {
-    throw new Error(`Couldn't read/parse config ${path}: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  const servers = (parsed as Config)?.servers;
-  if (!servers || typeof servers !== "object") {
-    throw new Error(`Config ${path} must have a top-level "servers" object.`);
-  }
-  for (const [key, cfg] of Object.entries(servers)) {
-    const c = cfg as Partial<StdioServerConfig & HttpServerConfig>;
-    const stdio = typeof c.command === "string";
-    const http = c.type === "http" || typeof c.url === "string";
-    if (!cfg || (!stdio && !http)) {
-      throw new Error(`Config server "${key}" needs a "command" (stdio) or a "url" (http).`);
+  if (path) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(path, "utf8"));
+    } catch (e) {
+      throw new Error(`Couldn't read/parse config ${path}: ${e instanceof Error ? e.message : String(e)}`);
     }
-    config.servers[key] = cfg as ServerConfig;
+    const servers = (parsed as { servers?: Record<string, RawServerConfig> })?.servers;
+    if (!servers || typeof servers !== "object") {
+      throw new Error(`Config ${path} must have a top-level "servers" object.`);
+    }
+    for (const [key, cfg] of Object.entries(servers)) raw[key] = { ...(raw[key] ?? {}), ...cfg };
+    log.info("config_loaded", { path, servers: Object.keys(raw) });
+  } else {
+    log.info("config_default", { servers: Object.keys(raw) });
   }
-  log.info("config_loaded", { path, servers: Object.keys(config.servers) });
-  return config;
+
+  const out: Record<string, ServerConfig> = {};
+  for (const [key, r] of Object.entries(raw)) {
+    const resolved = resolveServer(key, r);
+    const hasCommand = typeof (resolved as StdioServerConfig).command === "string";
+    if (!hasCommand && !isHttp(resolved)) {
+      throw new Error(
+        `Server "${key}" needs a "command", a "url", or a "use": "<catalog key>". ` +
+          `Known catalog keys: ${Object.keys(CATALOG).join(", ")}.`
+      );
+    }
+    out[key] = resolved;
+  }
+  return { servers: out };
 }
