@@ -11,12 +11,28 @@ import { resolve } from "node:path";
 import { CATALOG } from "./catalog.js";
 import { log } from "./log.js";
 
-/** Curation + on/off common to every server kind. */
+/** Server category — drives the safe-by-default guardrails. */
+export type ServerCategory =
+  | "browser" | "filesystem" | "database" | "infra" | "reasoning" | "design" | "remote" | "other";
+
+/** Curation + on/off + safety scoping common to every server kind. */
 type CommonConfig = {
   /** Set false to keep a server configured but off. Default: on. */
   enabled?: boolean;
   /** Tool curation for this server — fewer tools = better host tool-selection. */
   tools?: { allow?: string[]; deny?: string[] };
+  /** Classification (usually inherited from the catalog) — drives guardrails. */
+  category?: ServerCategory;
+  /** Filesystem: only allow tool calls whose path arguments stay within these
+   *  roots (resolved against cwd). A belt-and-suspenders over the fs server's
+   *  own allowed dir. */
+  roots?: string[];
+  /** Database: block write SQL (INSERT/UPDATE/DELETE/DROP/…) unless set false.
+   *  Defaults to true for `database` servers — QE validates data, doesn't mutate it. */
+  readOnly?: boolean;
+  /** Infra (docker/kubernetes): permit destructive-named tools
+   *  (delete/remove/prune/kill/…). Defaults to false. */
+  allowDestructive?: boolean;
 };
 
 /** A local server spawned over stdio (e.g. `npx @playwright/mcp`). */
