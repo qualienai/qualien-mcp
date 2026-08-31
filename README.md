@@ -66,7 +66,7 @@ See [`qualien-mcp.config.example.json`](./qualien-mcp.config.example.json) for t
 
 ### Built-in catalog
 
-qualien-mcp ships a curated catalog of known servers (verified against npm), so you enable one by **key** with just your secrets — no need to remember packages or commands:
+qualien-mcp ships a curated catalog of 21 known servers (each verified against npm), so you enable one by **key** with just your secrets — no need to remember packages or commands:
 
 ```json
 {
@@ -96,6 +96,13 @@ Run `npx qualien-mcp catalog` to list them all with what each needs. Current cat
 | `openapi` | Drive any REST API from its spec | `API_BASE_URL`, `OPENAPI_SPEC_PATH` |
 | `jira` | Read/update Jira issues | Atlassian API token env |
 | `figma` | Read Figma designs | `FIGMA_API_KEY` |
+| `confluence` | Test plans, release notes, living docs | Atlassian API token env |
+| `azure-devops` | Work items, repos, pipelines, test plans | your ADO org as an arg + sign-in |
+| `selenium` | Drive a browser via Selenium WebDriver | a browser + driver on PATH |
+| `webdriverio` | Browser **and** native-mobile automation | — (cloud creds optional) |
+| `browserstack` | Real browser/device cloud; read test runs | `BROWSERSTACK_USERNAME`, `BROWSERSTACK_ACCESS_KEY` |
+| `ms-365` | Excel, Word, Outlook, Teams, SharePoint | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` |
+| `sentry` | Real user-facing errors → new tests | a Sentry auth token |
 
 `use` mounts a catalog server under a different key (e.g. two databases): `{ "db-prod": { "use": "postgres", "enabled": true, "env": {…} } }`. Anything not in the catalog you still define in full (`command`/`args` or `type`/`url`).
 
