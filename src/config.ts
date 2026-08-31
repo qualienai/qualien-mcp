@@ -9,6 +9,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { CATALOG } from "./catalog.js";
+import type { DeviceFlowEndpoints } from "./device.js";
 import { log } from "./log.js";
 
 /** Server category — drives the safe-by-default guardrails. */
@@ -59,13 +60,22 @@ export type HttpServerConfig = CommonConfig & {
   oauth?: boolean;
   /**
    * Pre-registered OAuth client id. REQUIRED for servers that don't support
-   * dynamic client registration (e.g. GitHub) — the user registers their own
-   * OAuth app (callback http://127.0.0.1:41999/callback) and puts its id here.
+   * dynamic client registration (e.g. GitHub). Client ids are public, so the
+   * catalog can ship one; override it here to point at your own OAuth app.
    * Omit it for servers that support DCR (qualien-mcp registers automatically).
    */
   clientId?: string;
-  /** OAuth client secret, only for "confidential" apps that require one. */
+  /** OAuth client secret, only for "confidential" apps that require one.
+   *  Never set this in a catalog default — qualien-mcp ships on npm, so a secret
+   *  in a shipped default is a published secret. Use `deviceFlow` instead. */
   clientSecret?: string;
+  /**
+   * Device Authorization Grant (RFC 8628) endpoints. Set for PUBLIC clients that
+   * cannot hold a secret. When present, `login` runs the device flow (approve a
+   * short code in the browser) instead of the authorization-code redirect, so
+   * only a public `clientId` is needed — no secret, no callback port.
+   */
+  deviceFlow?: DeviceFlowEndpoints;
   /** OAuth scope string to request (space-separated), if the server needs one. */
   scope?: string;
   /** Static headers (e.g. a personal access token) for non-OAuth remotes. */

@@ -11,6 +11,12 @@
  */
 import type { HttpServerConfig, StdioServerConfig } from "./config.js";
 
+/**
+ * Public client id of the "qualien-mcp" GitHub OAuth App. Safe to ship: OAuth
+ * client ids are public identifiers, and the device flow needs no secret.
+ */
+const GITHUB_CLIENT_ID = "Ov23liOwhH56BdRrM1VP";
+
 export type CatalogConfig = Partial<StdioServerConfig> | Partial<HttpServerConfig>;
 export type CatalogEntry = {
   description: string;
@@ -44,11 +50,24 @@ export const CATALOG: Record<string, CatalogEntry> = {
   // ---- remote / OAuth ----
   github: {
     description: "Review code, open PRs, manage issues/test cases — via GitHub's hosted MCP.",
-    requires: [
-      "your own GitHub OAuth App client id (set `clientId`; callback http://127.0.0.1:41999/callback)",
-      "then: qualien-mcp login github",
-    ],
-    config: { type: "http", url: "https://api.githubcopilot.com/mcp/", oauth: true },
+    requires: ["qualien-mcp login github (approve a short code — no OAuth app to register)"],
+    config: {
+      type: "http",
+      url: "https://api.githubcopilot.com/mcp/",
+      oauth: true,
+      // Public client id for the shipped "qualien-mcp" GitHub OAuth App. Client
+      // ids are NOT secrets. There is deliberately no clientSecret here: this
+      // package is public on npm, so we use the device flow, which is the one
+      // grant GitHub allows without a secret. Override with your own app via
+      // `clientId` in config, or QUALIEN_MCP_GITHUB_CLIENT_ID.
+      clientId: process.env.QUALIEN_MCP_GITHUB_CLIENT_ID ?? GITHUB_CLIENT_ID,
+      deviceFlow: {
+        deviceAuthorizationUrl: "https://github.com/login/device/code",
+        tokenUrl: "https://github.com/login/oauth/access_token",
+      },
+      scope: "repo read:org",
+      category: "remote",
+    },
   },
 
   // ---- reasoning / memory ----
