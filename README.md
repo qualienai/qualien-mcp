@@ -84,7 +84,7 @@ Run `npx qualien-mcp catalog` to list them all with what each needs. Current cat
 |---|---|---|
 | `playwright` *(default)* | Browser automation, DOM, screenshots | — |
 | `filesystem` *(default)* | Read/edit project files | a dir to allow (default cwd) |
-| `github` | PRs, issues, code review | your GitHub OAuth App + `login` (see below) |
+| `github` | PRs, issues, code review | `login github` (see below) |
 | `sequential-thinking` | Structured reasoning / debugging | — |
 | `memory` | Persistent knowledge graph | — |
 | `chrome-devtools` | Network, console, perf, storage | — |
@@ -101,30 +101,39 @@ Run `npx qualien-mcp catalog` to list them all with what each needs. Current cat
 
 ## Remote & OAuth servers (e.g. GitHub)
 
-Downstreams can be **remote** (Streamable HTTP) as well as local. A remote server is `{ "type": "http", "url": "…" }`, and if it needs OAuth, **each user logs in with their own account** — tokens are stored per user at `~/.qualien-mcp/credentials.json` (0600) and are never bundled or shared.
+Downstreams can be **remote** (Streamable HTTP) as well as local. A remote server is `{ "type": "http", "url": "…" }`, and if it needs OAuth, **each user logs in with their own account** — tokens are stored per user at `~/.qualien-mcp/credentials.json` (0600), on that user's own machine, and are never bundled, shared, or sent anywhere by qualien-mcp.
 
-GitHub's hosted MCP is the reference case. It does **not** support dynamic client registration, so you register **your own** GitHub OAuth App once and give qualien-mcp its Client ID:
+GitHub's hosted MCP is the reference case, and it needs no setup beyond one command:
 
-1. GitHub → Settings → Developer settings → **OAuth Apps** → New. Set the callback URL to `http://127.0.0.1:41999/callback`. Copy the **Client ID**.
-2. In `qualien-mcp.config.json`:
+1. Turn it on in `qualien-mcp.config.json`:
    ```json
-   {
-     "servers": {
-       "github": {
-         "type": "http",
-         "url": "https://api.githubcopilot.com/mcp/",
-         "oauth": true,
-         "clientId": "<your client id>"
-       }
-     }
-   }
+   { "servers": { "github": { "enabled": true } } }
    ```
-3. Authorize (opens your browser, once):
+2. Authorize once:
    ```bash
    npx qualien-mcp login github
    ```
 
-After that the gateway connects to GitHub non-interactively (refreshing tokens as needed) and exposes `github__*` tools. If a remote server isn't logged in yet, the gateway **skips it with a hint** (`run: npx qualien-mcp login github`) and still serves everything else — it never blocks startup. Servers that *do* support dynamic registration need no `clientId`.
+`login` prints a short code and a URL; you approve it on github.com and you're done. There is no OAuth App to register and no client secret anywhere.
+
+<details>
+<summary>Why the device flow?</summary>
+
+GitHub requires a `client_secret` to exchange an authorization code — [PKCE does not lift that](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/best-practices-for-creating-an-oauth-app), because GitHub does not distinguish public from confidential clients. qualien-mcp ships on npm, so a secret in the package would be a *published* secret. The [device flow](https://datatracker.ietf.org/doc/html/rfc8628) is the one grant GitHub allows without a secret, and it's the grant GitHub recommends for CLIs. So qualien-mcp ships only a **public client id** — an identifier, not a credential — and every user's tokens are minted on, and stay on, their own machine.
+
+</details>
+
+To use **your own** GitHub OAuth App instead of the shipped one, set `clientId` (and enable the device flow on it under *Settings → Developer settings → OAuth Apps*):
+
+```json
+{
+  "servers": {
+    "github": { "clientId": "<your client id>", "enabled": true }
+  }
+}
+```
+
+If a remote server isn't logged in yet, the gateway **skips it with a hint** (`run: npx qualien-mcp login github`) and still serves everything else — it never blocks startup. Servers that support dynamic client registration need no `clientId` at all.
 
 ## Safe by default
 

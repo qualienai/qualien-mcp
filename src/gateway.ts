@@ -32,6 +32,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { isHttp, type Config, type ServerConfig } from "./config.js";
 import { FileOAuthProvider, NeedsLoginError } from "./oauth.js";
+import { getDeviceAccessToken, NeedsDeviceLoginError } from "./device.js";
 import { checkCall } from "./safety.js";
 import { COMPOSITE_TOOLS, type CompositeContext } from "./composite.js";
 import { log } from "./log.js";
@@ -49,8 +50,17 @@ type Downstream = {
 /** Builds the right client transport for a server (local stdio or remote HTTP).
  *  For OAuth remotes the provider is non-interactive: if a redirect is needed it
  *  throws NeedsLoginError rather than popping a browser mid-session. */
-function makeTransport(key: string, cfg: ServerConfig): Transport {
+async function makeTransport(key: string, cfg: ServerConfig): Promise<Transport> {
   if (isHttp(cfg)) {
+    // Device-flow remotes carry a bearer token the user got via `login`; the
+    // SDK's OAuthClientProvider models the authorization-code flow only.
+    if (cfg.deviceFlow) {
+      if (!cfg.clientId) throw new NeedsDeviceLoginError(key);
+      const token = await getDeviceAccessToken(key, cfg.deviceFlow, cfg.clientId);
+      return new StreamableHTTPClientTransport(new URL(cfg.url), {
+        requestInit: { headers: { ...(cfg.headers ?? {}), authorization: `Bearer ${token}` } },
+      });
+    }
     const authProvider = cfg.oauth
       ? new FileOAuthProvider(key, Number(process.env.QUALIEN_MCP_CALLBACK_PORT ?? 41999), {
           interactive: false,
@@ -87,7 +97,18 @@ async function connectDownstream(
   cfg: ServerConfig,
   version: string
 ): Promise<Downstream | null> {
-  const transport = makeTransport(key, cfg);
+  let transport: Transport;
+  try {
+    transport = await makeTransport(key, cfg);
+  } catch (e) {
+    // Not logged in yet: skip this server with a hint, same as a failed connect.
+    if (e instanceof NeedsDeviceLoginError) {
+      log.warn("downstream_needs_login", { server: key, hint: `run: npx qualien-mcp login ${key}` });
+      return null;
+    }
+    log.error("downstream_connect_failed", { server: key, error: String(e) });
+    return null;
+  }
   const client = new Client({ name: `qualien-mcp:${key}`, version }, { capabilities: {} });
   try {
     const t0 = Date.now();
@@ -99,7 +120,7 @@ async function connectDownstream(
     try { await transport.close(); } catch { /* ignore */ }
     // An OAuth remote the user hasn't logged into: skip it with an actionable hint
     // (not a scary error) — the rest of the gateway still comes up.
-    if (e instanceof NeedsLoginError || e instanceof UnauthorizedError) {
+    if (e instanceof NeedsLoginError || e instanceof NeedsDeviceLoginError || e instanceof UnauthorizedError) {
       log.warn("downstream_needs_login", { server: key, hint: `run: npx qualien-mcp login ${key}` });
       return null;
     }
@@ -164,9 +185,12 @@ export async function startGateway(config: Config, version: string): Promise<voi
     call: (t, a) => callDownstreamTool(t, a),
   };
 
-  // Advertise only the primitives at least one downstream actually supports.
-  const capabilities: ServerCapabilities = {};
-  if (downstreams.some((d) => d.caps.tools)) capabilities.tools = {};
+  // Advertise only the primitives at least one downstream actually supports —
+  // except tools, which we always advertise. qualien-mcp is a tools gateway, and
+  // a host asking tools/list deserves an empty list over a "method not found"
+  // when nothing is connected yet (the normal state between enabling an OAuth
+  // remote and running `qualien-mcp login <server>`).
+  const capabilities: ServerCapabilities = { tools: {} };
   if (downstreams.some((d) => d.caps.resources)) capabilities.resources = {};
   if (downstreams.some((d) => d.caps.prompts)) capabilities.prompts = {};
 

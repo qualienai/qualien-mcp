@@ -16,11 +16,7 @@
       "enabled": true
     },
     "github": {
-      "_about": "Remote OAuth server. Each USER logs in with their OWN GitHub via `qualien-mcp login github`. GitHub does NOT support dynamic client registration, so register a GitHub OAuth App (Settings → Developer settings → OAuth Apps) with callback http://127.0.0.1:41999/callback and put its Client ID below.",
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "oauth": true,
-      "clientId": "YOUR_GITHUB_OAUTH_APP_CLIENT_ID",
+      "_about": "Remote OAuth server. Each USER logs in with their OWN GitHub via `qualien-mcp login github` — a short code approved in the browser (device flow). No OAuth App to register and no client secret: qualien-mcp ships a public client id. Set `clientId` here only to point at your own OAuth App.",
       "enabled": false
     },
     "sequential-thinking": {

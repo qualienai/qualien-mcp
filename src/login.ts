@@ -11,8 +11,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { FileOAuthProvider } from "./oauth.js";
-import { isHttp, type Config } from "./config.js";
-import { credentialsPath } from "./credentials.js";
+import { deviceLogin, type DeviceTokens } from "./device.js";
+import { isHttp, type Config, type HttpServerConfig } from "./config.js";
+import { credentialsPath, getServerCreds } from "./credentials.js";
 
 // Fixed loopback port so the dynamically-registered redirect_uri is stable across
 // re-logins. Override with QUALIEN_MCP_CALLBACK_PORT if it clashes with something.
@@ -26,6 +27,9 @@ export async function runLogin(serverKey: string, config: Config, version: strin
   if (!isHttp(cfg)) {
     throw new Error(`"${serverKey}" is a local (stdio) server — login is only for remote OAuth servers.`);
   }
+
+  // Public clients (GitHub) use the device flow: no secret, no loopback redirect.
+  if (cfg.deviceFlow) return runDeviceLogin(serverKey, cfg, version);
 
   // Loopback listener that catches the OAuth redirect and hands back the code.
   let resolveCode!: (code: string) => void;
@@ -95,4 +99,55 @@ export async function runLogin(serverKey: string, config: Config, version: strin
   } finally {
     server.close();
   }
+}
+
+/** Connects to a device-flow remote using a bearer token. */
+async function connectWithToken(
+  serverKey: string,
+  cfg: HttpServerConfig,
+  accessToken: string,
+  version: string
+): Promise<Client> {
+  const transport = new StreamableHTTPClientTransport(new URL(cfg.url), {
+    requestInit: { headers: { ...(cfg.headers ?? {}), authorization: `Bearer ${accessToken}` } },
+  });
+  const client = new Client({ name: `qualien-mcp:${serverKey}`, version }, { capabilities: {} });
+  await client.connect(transport);
+  return client;
+}
+
+/**
+ * Device Authorization Grant login (RFC 8628): show the user a short code, wait
+ * for them to approve it on the provider's site, then prove the token actually
+ * works against the MCP endpoint before declaring success.
+ */
+async function runDeviceLogin(serverKey: string, cfg: HttpServerConfig, version: string): Promise<void> {
+  if (!cfg.clientId) {
+    throw new Error(`"${serverKey}" uses the device flow but has no clientId — set one in your config.`);
+  }
+
+  // Already logged in? Prove it and stop, rather than making them approve again.
+  const saved = getServerCreds(serverKey).tokens as DeviceTokens | undefined;
+  if (saved?.access_token) {
+    try {
+      const client = await connectWithToken(serverKey, cfg, saved.access_token, version);
+      const { tools } = await client.listTools();
+      process.stderr.write(`\nqualien-mcp: "${serverKey}" already authorized ✓ — ${tools.length} tools.\n`);
+      await client.close();
+      return;
+    } catch {
+      process.stderr.write(`qualien-mcp: saved "${serverKey}" token no longer works — re-authorizing.\n`);
+    }
+  }
+
+  const tokens = await deviceLogin(serverKey, cfg.deviceFlow!, cfg.clientId, cfg.scope, (s) =>
+    process.stderr.write(s)
+  );
+  const client = await connectWithToken(serverKey, cfg, tokens.access_token, version);
+  const { tools } = await client.listTools();
+  process.stderr.write(
+    `\nqualien-mcp: authorized "${serverKey}" ✓ — ${tools.length} tools now available.\n` +
+      `Tokens saved to ${credentialsPath()}\n`
+  );
+  await client.close();
 }
