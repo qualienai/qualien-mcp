@@ -80,6 +80,41 @@ export const CATALOG: Record<string, CatalogEntry> = {
     config: npx("@modelcontextprotocol/server-memory"),
   },
 
+  // ---- alternative drivers + device clouds ----
+  selenium: {
+    description: "Drive a real browser through Selenium WebDriver — for Selenium-based suites.",
+    requires: ["a matching browser + driver on PATH (chromedriver/geckodriver)"],
+    config: { ...npx("@angiejones/mcp-selenium"), category: "browser" },
+  },
+  webdriverio: {
+    description: "Browser AND native-mobile automation via WebdriverIO.",
+    requires: [
+      "local browsers need no credentials",
+      "for a device cloud, env BROWSERSTACK_USERNAME + BROWSERSTACK_ACCESS_KEY",
+    ],
+    config: { ...npx("@wdio/mcp"), category: "browser" },
+  },
+  browserstack: {
+    description: "Run against BrowserStack's real browser/device cloud; read test runs.",
+    requires: ["env BROWSERSTACK_USERNAME, BROWSERSTACK_ACCESS_KEY"],
+    config: { ...npx("@browserstack/mcp-server"), category: "browser" },
+  },
+
+  // ---- productivity / reporting ----
+  "ms-365": {
+    description: "Excel, Word, Outlook, Teams and SharePoint via Microsoft Graph — test data and reports.",
+    requires: [
+      "env AZURE_CLIENT_ID and AZURE_TENANT_ID (an Entra app registration)",
+      "then sign in when prompted",
+    ],
+    config: npx("@softeria/ms-365-mcp-server"),
+  },
+  sentry: {
+    description: "Read real user-facing errors and traces — turn production failures into tests.",
+    requires: ["a Sentry auth token (the server prompts on first use)"],
+    config: npx("@sentry/mcp-server"),
+  },
+
   // ---- browser diagnostics ----
   "chrome-devtools": {
     description: "Network traffic, console logs, performance, cookies/storage — via Chrome DevTools.",
@@ -123,6 +158,23 @@ export const CATALOG: Record<string, CatalogEntry> = {
     description: "Read/update Jira issues — trace tests to tickets, file defects.",
     requires: ["env ATLASSIAN_SITE_NAME, ATLASSIAN_USER_EMAIL, ATLASSIAN_API_TOKEN"],
     config: npx("@aashari/mcp-server-atlassian-jira"),
+  },
+  confluence: {
+    description: "Read/write Confluence pages — test plans, release notes, living docs.",
+    // Same credential trio as jira: one Atlassian API token covers both.
+    requires: ["env ATLASSIAN_SITE_NAME, ATLASSIAN_USER_EMAIL, ATLASSIAN_API_TOKEN"],
+    config: npx("@aashari/mcp-server-atlassian-confluence"),
+  },
+  "azure-devops": {
+    description: "Work items, repos, pipelines and test plans in Azure DevOps.",
+    requires: [
+      "your ADO organization name as the last arg: " +
+        '{ "azure-devops": { "enabled": true, "args": ["-y", "@azure-devops/mcp", "my-org"] } }',
+      "sign in when prompted, or add \"--authentication\", \"azcli\" to args and run `az login`",
+    ],
+    // Microsoft's official server. The org is positional, so the placeholder is
+    // spelled out rather than left blank — a wrong org fails clearly.
+    config: npx("@azure-devops/mcp", "YOUR_ADO_ORG"),
   },
   figma: {
     description: "Read Figma designs — ground visual/UI tests on the source of truth.",

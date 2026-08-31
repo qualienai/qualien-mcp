@@ -1,6 +1,6 @@
 {
   "name": "qualien-mcp",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A composite MCP gateway that aggregates multiple MCP servers behind one connection \u2014 curated for SDET/QE workflows.",
   "type": "module",
   "bin": {
