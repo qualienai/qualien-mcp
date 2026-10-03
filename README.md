@@ -191,6 +191,10 @@ assistant ⇄ qualien-mcp ⇄ playwright-mcp
 - v0.1 — Playwright + Filesystem, namespacing, curation, logging, clean lifecycle ✅
 - Next — config-driven expansion (GitHub via its hosted OAuth MCP, DB, Sequential-Thinking, Memory, Chrome DevTools), composite QE tools (e.g. verify API ↔ DB consistency in one call), safety scoping.
 
+## Feedback
+
+Found a bug, want a server added to the catalog, or have an idea? Email **[contact@qualien.ai](mailto:contact@qualien.ai)** or [open an issue](https://github.com/qualienai/qualien-mcp/issues). qualien-mcp is part of [qualien.ai](https://qualien.ai).
+
 ## License
 
 MIT
