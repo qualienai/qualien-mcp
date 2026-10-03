@@ -1,7 +1,7 @@
 {
   "name": "qualien-mcp",
-  "version": "0.6.0",
-  "description": "A composite MCP gateway that aggregates multiple MCP servers behind one connection \u2014 curated for SDET/QE workflows.",
+  "version": "0.6.1",
+  "description": "A composite MCP gateway that aggregates multiple MCP servers behind one connection — curated for SDET/QE workflows.",
   "type": "module",
   "bin": {
     "qualien-mcp": "dist/index.js"
