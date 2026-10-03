@@ -38,6 +38,11 @@
     "type": "git",
     "url": "git+https://github.com/qualienai/qualien-mcp.git"
   },
+  "homepage": "https://github.com/qualienai/qualien-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/qualienai/qualien-mcp/issues",
+    "email": "contact@qualien.ai"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0"
   },
