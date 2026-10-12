@@ -1,7 +1,8 @@
 {
   "name": "qualien-mcp",
-  "version": "0.6.1",
-  "description": "A composite MCP gateway that aggregates multiple MCP servers behind one connection — curated for SDET/QE workflows.",
+  "version": "0.6.2",
+  "mcpName": "io.github.qualienai/qualien-mcp",
+  "description": "MCP gateway for QA/SDET work: Playwright, Filesystem, GitHub, Jira, Postgres and more behind one connection.",
   "type": "module",
   "bin": {
     "qualien-mcp": "dist/index.js"
@@ -23,6 +24,7 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "gateway",
     "aggregator",
@@ -30,7 +32,15 @@
     "qa",
     "qe",
     "testing",
-    "playwright"
+    "test-automation",
+    "qa-automation",
+    "playwright",
+    "selenium",
+    "appium",
+    "jira",
+    "claude",
+    "cursor",
+    "ai-agents"
   ],
   "author": "qualien",
   "license": "MIT",
