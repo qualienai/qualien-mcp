@@ -1,12 +1,16 @@
 # qualien-mcp
 
-A **composite MCP gateway** — it aggregates multiple [Model Context Protocol](https://modelcontextprotocol.io) servers behind **one** connection, curated for **SDET / QE** workflows. Add one server to your AI assistant instead of five.
+**One MCP server that gives your AI assistant a QA toolkit: Playwright, your test files, GitHub, Jira, Postgres and more, behind a single connection.**
+
+[![npm](https://img.shields.io/npm/v/qualien-mcp)](https://www.npmjs.com/package/qualien-mcp) [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+
+qualien-mcp is a **composite MCP gateway** for SDET / QE work. It aggregates [Model Context Protocol](https://modelcontextprotocol.io) servers behind **one** connection, with a curated catalog of 21 testing-relevant servers, per-tool allow/deny, and read-only-by-default guardrails. Add one server to Claude Code, Claude Desktop, Cursor or VS Code instead of five.
 
 ```bash
 npx qualien-mcp
 ```
 
-Out of the box it serves the **QE starter pair** — [Playwright MCP](https://github.com/microsoft/playwright-mcp) (browser automation, DOM, screenshots) and [Filesystem MCP](https://github.com/modelcontextprotocol/servers) (read/edit project files, page objects, test utils) — with zero config. Tools are exposed to your assistant namespaced as `playwright__…` and `filesystem__…`.
+Out of the box it serves the **QE starter pair**: [Playwright MCP](https://github.com/microsoft/playwright-mcp) (browser automation, DOM, screenshots) and [Filesystem MCP](https://github.com/modelcontextprotocol/servers) (read/edit project files, page objects, test utils), with zero config. Tools are exposed to your assistant namespaced as `playwright__…` and `filesystem__…`.
 
 ## Why a gateway?
 
@@ -20,7 +24,13 @@ Your assistant can already connect to many MCP servers directly — so a gateway
 
 ## Use it with your assistant
 
-**Claude Code** (`.mcp.json` or user settings):
+**Claude Code**:
+
+```bash
+claude mcp add qualien -- npx -y qualien-mcp
+```
+
+or in `.mcp.json` / user settings:
 
 ```json
 {
@@ -30,7 +40,17 @@ Your assistant can already connect to many MCP servers directly — so a gateway
 }
 ```
 
-**Claude Desktop** (`claude_desktop_config.json`) — same shape under `mcpServers`.
+**Claude Desktop** (`claude_desktop_config.json`) and **Cursor** (`~/.cursor/mcp.json` or `.cursor/mcp.json`): the same shape under `mcpServers`.
+
+**VS Code** (`.vscode/mcp.json`):
+
+```json
+{
+  "servers": {
+    "qualien": { "command": "npx", "args": ["-y", "qualien-mcp"] }
+  }
+}
+```
 
 That single entry gives your assistant every tool from every aggregated server.
 
@@ -188,12 +208,13 @@ assistant ⇄ qualien-mcp ⇄ playwright-mcp
 
 ## Roadmap
 
-- v0.1 — Playwright + Filesystem, namespacing, curation, logging, clean lifecycle ✅
-- Next — config-driven expansion (GitHub via its hosted OAuth MCP, DB, Sequential-Thinking, Memory, Chrome DevTools), composite QE tools (e.g. verify API ↔ DB consistency in one call), safety scoping.
+- ✅ Playwright + Filesystem, namespacing, curation, logging, clean lifecycle
+- ✅ Config-driven catalog of 21 servers, remote/OAuth servers (GitHub via device flow), safe-by-default guardrails, `qe__verify_api_vs_db`
+- Next: more composite QE tools (repro-from-Jira, page-object-from-URL, flaky triage)
 
 ## Feedback
 
-Found a bug, want a server added to the catalog, or have an idea? Email **[contact@qualien.ai](mailto:contact@qualien.ai)** or [open an issue](https://github.com/qualienai/qualien-mcp/issues). qualien-mcp is part of [qualien.ai](https://qualien.ai).
+Found a bug, want a server added to the catalog, or have an idea? Email **[contact@qualien.ai](mailto:contact@qualien.ai)** or [open an issue](https://github.com/qualienai/qualien-mcp/issues). qualien-mcp is part of [qualien.ai](https://qualien.ai/?utm_source=github&utm_medium=readme&utm_campaign=qualien-mcp), which also builds AI agents that test web apps (Olympus) and native Android apps (Pulse) from plain English.
 
 ## License
 

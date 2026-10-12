@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.qualienai/qualien-mcp",
+  "description": "MCP gateway for QA/SDET work: Playwright, files, GitHub, Jira, Postgres & more in one connection.",
+  "repository": {
+    "url": "https://github.com/qualienai/qualien-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://qualien.ai/tools/qualien-mcp",
+  "version": "0.6.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "qualien-mcp",
+      "version": "0.6.2",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
