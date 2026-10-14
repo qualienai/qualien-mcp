@@ -42,6 +42,8 @@ or in `.mcp.json` / user settings:
 
 **Claude Desktop** (`claude_desktop_config.json`) and **Cursor** (`~/.cursor/mcp.json` or `.cursor/mcp.json`): the same shape under `mcpServers`.
 
+**Claude Desktop extension**: download `qualien-mcp-<version>.mcpb` from the [latest release](https://github.com/qualienai/qualien-mcp/releases/latest) and open it. Claude Desktop asks for a **project folder**: the Filesystem tools are limited to it, and a `qualien-mcp.config.json` inside it turns on more servers. Also listed on [Smithery](https://smithery.ai/servers/qualienai/qualien-mcp).
+
 **VS Code** (`.vscode/mcp.json`):
 
 ```json

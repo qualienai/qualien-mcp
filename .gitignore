@@ -4,3 +4,5 @@ dist/
 .DS_Store
 qualien-mcp.config.json
 .qualien-mcp/
+build/
+*.mcpb

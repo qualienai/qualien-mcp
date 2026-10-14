@@ -1,0 +1,49 @@
+{
+  "manifest_version": "0.3",
+  "name": "qualien-mcp",
+  "display_name": "qualien-mcp: QA toolkit gateway",
+  "version": "0.0.0",
+  "description": "One MCP server that gives your AI assistant a QA toolkit: Playwright, your test files, GitHub, Jira, Postgres and more.",
+  "long_description": "qualien-mcp is a composite MCP gateway for SDET / QE work. Out of the box it serves Playwright MCP (browser automation, accessibility snapshots, screenshots) and Filesystem MCP scoped to the project folder you pick. Put a qualien-mcp.config.json in that folder to turn on more of its 21 catalog servers (GitHub, Postgres, MySQL, Jira, Confluence, Azure DevOps, Selenium, WebdriverIO, BrowserStack, Chrome DevTools, Sentry and others), with per-tool allow/deny and read-only-by-default database guardrails. Requires Node.js 20+ with npx on your PATH; the catalog servers are started with npx.",
+  "author": {
+    "name": "qualien",
+    "url": "https://qualien.ai"
+  },
+  "homepage": "https://qualien.ai/tools/qualien-mcp",
+  "documentation": "https://github.com/qualienai/qualien-mcp#readme",
+  "support": "https://github.com/qualienai/qualien-mcp/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qualienai/qualien-mcp"
+  },
+  "license": "MIT",
+  "keywords": ["qa", "testing", "test-automation", "sdet", "playwright", "gateway", "mcp"],
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "entry.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/entry.js"],
+      "env": {
+        "QUALIEN_MCP_PROJECT_DIR": "${user_config.project_dir}"
+      }
+    }
+  },
+  "user_config": {
+    "project_dir": {
+      "type": "directory",
+      "title": "Project folder",
+      "description": "The folder the Filesystem tools can read and edit (your tests, page objects, fixtures). A qualien-mcp.config.json in this folder turns on more servers.",
+      "required": true
+    }
+  },
+  "tools": [],
+  "tools_generated": true,
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}
